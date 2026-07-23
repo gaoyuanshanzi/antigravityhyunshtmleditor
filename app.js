@@ -673,12 +673,13 @@ function exportToPDF(baseName) {
     const container = document.createElement("div");
     container.id = "pdf-export-container";
     container.style.cssText = `
-        position: absolute;
+        position: fixed;
         top: 0;
         left: 0;
         width: 800px;
         z-index: -99999;
-        opacity: 0.01;
+        opacity: 1;
+        pointer-events: none;
         background-color: #ffffff !important;
         color: #1f2937 !important;
         overflow: visible !important;
