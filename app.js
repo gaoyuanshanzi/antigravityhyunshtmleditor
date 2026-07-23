@@ -686,38 +686,57 @@ function exportToPDF(baseName) {
             color: #1f2937 !important;
             height: auto !important;
             min-height: 100% !important;
+            max-height: none !important;
             overflow: visible !important;
         }
-        body.pdf-printing div,
-        body.pdf-printing section,
-        body.pdf-printing article,
-        body.pdf-printing main,
-        body.pdf-printing p,
-        body.pdf-printing h1,
-        body.pdf-printing h2,
-        body.pdf-printing h3,
-        body.pdf-printing h4,
-        body.pdf-printing h5,
-        body.pdf-printing h6,
-        body.pdf-printing li,
-        body.pdf-printing table,
-        body.pdf-printing tr,
-        body.pdf-printing td,
-        body.pdf-printing th,
-        body.pdf-printing blockquote,
-        body.pdf-printing pre {
-            background-color: transparent !important;
-            background-image: none !important;
-            color: #1f2937 !important;
-            text-shadow: none !important;
-            box-shadow: none !important;
+        body.pdf-printing * {
+            max-height: none !important;
             overflow: visible !important;
-        }
-        body.pdf-printing span[style*="background-color"],
-        body.pdf-printing mark {
-            color: inherit !important;
         }
     `;
+
+    // Save original inline style attributes before sanitizing
+    const modifiedStyles = [];
+    const allElements = body.querySelectorAll("*");
+
+    allElements.forEach(el => {
+        const origStyle = el.getAttribute("style");
+        let changed = false;
+
+        // 1. Check & strip dark inline background colors (e.g. style="background-color: black")
+        const styleBg = el.style.backgroundColor;
+        if (styleBg) {
+            const match = styleBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
+                const luma = (r * 299 + g * 587 + b * 114) / 1000;
+                // If background is dark (luma < 150), remove the inline background
+                if (luma < 150) {
+                    el.style.backgroundColor = "transparent";
+                    changed = true;
+                }
+            }
+        }
+
+        // 2. Check & fix white/light inline text colors (e.g. style="color: white")
+        const styleColor = el.style.color;
+        if (styleColor) {
+            const match = styleColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
+                const luma = (r * 299 + g * 587 + b * 114) / 1000;
+                // If text color is light (luma > 170), change to dark gray #1f2937
+                if (luma > 170) {
+                    el.style.color = "#1f2937";
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            modifiedStyles.push({ el, origStyle });
+        }
+    });
 
     // Add print class & temporarily disable editable state & outline guides
     body.classList.add("pdf-printing");
@@ -730,7 +749,24 @@ function exportToPDF(baseName) {
         body.classList.remove("pdf-printing");
         if (isEditable !== null) body.setAttribute("contenteditable", isEditable);
         if (hadGuides) body.classList.add("show-guides");
+
+        // Restore modified inline styles
+        modifiedStyles.forEach(item => {
+            if (item.origStyle !== null) {
+                item.el.setAttribute("style", item.origStyle);
+            } else {
+                item.el.removeAttribute("style");
+            }
+        });
     };
+
+    // Calculate full document scroll height across all pages
+    const fullHeight = Math.max(
+        body.scrollHeight,
+        body.offsetHeight,
+        previewDoc.documentElement.scrollHeight,
+        previewDoc.documentElement.offsetHeight
+    );
 
     const opt = {
         margin: [10, 10, 10, 10],
@@ -741,6 +777,8 @@ function exportToPDF(baseName) {
             useCORS: true,
             allowTaint: true,
             backgroundColor: "#ffffff",
+            height: fullHeight,
+            windowHeight: fullHeight,
             scrollY: 0,
             scrollX: 0
         },
@@ -769,7 +807,7 @@ function exportToPDF(baseName) {
                 }
                 restoreDoc();
             });
-    }, 150);
+    }, 200);
 }
 
 // 2) EPUB Export (using JSZip)
