@@ -215,12 +215,61 @@
                         <option value="7">가장 크게 (48px)</option>
                     </select>
                     <div class="ribbon-divider"></div>
-                    <div class="ribbon-color-picker">
-                        <button class="btn-ribbon" id="ribbon-color-btn" title="글자색 (Text Color)">
-                            <i data-lucide="palette"></i>
-                            <span class="color-preview-dot" id="color-preview-dot"></span>
+                    <!-- Text Color Group -->
+                    <div class="ribbon-dropdown-group" id="text-color-group">
+                        <button class="btn-ribbon btn-color-main" id="ribbon-color-btn" title="글자색 (Text Color)">
+                            <i data-lucide="type"></i>
+                            <span class="color-indicator-line" id="text-color-line" style="background-color: #ef4444;"></span>
                         </button>
-                        <input type="color" id="ribbon-color-input" style="display: none;">
+                        <button class="btn-ribbon-arrow" id="ribbon-color-arrow" title="글자색 선택">
+                            <i data-lucide="chevron-down"></i>
+                        </button>
+                        <!-- Text color palette popup -->
+                        <div class="color-palette-popup hidden" id="text-color-palette">
+                            <div class="color-grid">
+                                <div class="color-cell" style="background-color: #000000;" data-color="#000000" title="검은색"></div>
+                                <div class="color-cell" style="background-color: #4b5563;" data-color="#4b5563" title="회색"></div>
+                                <div class="color-cell" style="background-color: #ef4444;" data-color="#ef4444" title="빨간색"></div>
+                                <div class="color-cell" style="background-color: #f97316;" data-color="#f97316" title="주황색"></div>
+                                <div class="color-cell" style="background-color: #eab308;" data-color="#eab308" title="노란색"></div>
+                                <div class="color-cell" style="background-color: #22c55e;" data-color="#22c55e" title="초록색"></div>
+                                <div class="color-cell" style="background-color: #3b82f6;" data-color="#3b82f6" title="파란색"></div>
+                                <div class="color-cell" style="background-color: #6366f1;" data-color="#6366f1" title="남색"></div>
+                                <div class="color-cell" style="background-color: #a855f7;" data-color="#a855f7" title="보라색"></div>
+                                <div class="color-cell" style="background-color: #ffffff; border: 1px solid #444;" data-color="#ffffff" title="흰색"></div>
+                            </div>
+                            <button class="btn-custom-color" id="text-custom-color-trigger">다른 색상...</button>
+                            <input type="color" id="text-color-picker-input" style="display:none;" value="#ef4444">
+                        </div>
+                    </div>
+
+                    <!-- Highlight Color Group -->
+                    <div class="ribbon-dropdown-group" id="bg-color-group">
+                        <button class="btn-ribbon btn-highlight-main" id="ribbon-bg-btn" title="형광펜/배경색 (Highlight Color)">
+                            <i data-lucide="highlighter"></i>
+                            <span class="color-indicator-line" id="bg-color-line" style="background-color: #fef08a;"></span>
+                        </button>
+                        <button class="btn-ribbon-arrow" id="ribbon-bg-arrow" title="배경색 선택">
+                            <i data-lucide="chevron-down"></i>
+                        </button>
+                        <!-- Background color palette popup -->
+                        <div class="color-palette-popup hidden" id="bg-color-palette">
+                            <div class="color-grid">
+                                <div class="color-cell" style="background-color: #fef08a;" data-color="#fef08a" title="노랑"></div>
+                                <div class="color-cell" style="background-color: #bbf7d0;" data-color="#bbf7d0" title="초록"></div>
+                                <div class="color-cell" style="background-color: #bfdbfe;" data-color="#bfdbfe" title="파랑"></div>
+                                <div class="color-cell" style="background-color: #fbcfe8;" data-color="#fbcfe8" title="분홍"></div>
+                                <div class="color-cell" style="background-color: #fed7aa;" data-color="#fed7aa" title="주황"></div>
+                                <div class="color-cell" style="background-color: #c084fc;" data-color="#c084fc" title="보라"></div>
+                                <div class="color-cell" style="background-color: #93c5fd;" data-color="#93c5fd" title="하늘"></div>
+                                <div class="color-cell" style="background-color: #f87171;" data-color="#f87171" title="연빨강"></div>
+                                <div class="color-cell" style="background-color: #e5e7eb;" data-color="#e5e7eb" title="연회색"></div>
+                                <div class="color-cell" style="background-color: #000000;" data-color="#000000" title="검정"></div>
+                            </div>
+                            <button class="btn-custom-color" id="bg-clear-trigger">색상 없음 (지우기)</button>
+                            <button class="btn-custom-color" id="bg-custom-color-trigger">다른 색상...</button>
+                            <input type="color" id="bg-color-picker-input" style="display:none;" value="#fef08a">
+                        </div>
                     </div>
                 </div>
 

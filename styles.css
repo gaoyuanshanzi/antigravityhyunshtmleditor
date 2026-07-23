@@ -994,21 +994,127 @@ body {
     margin: 0 4px;
 }
 
-.ribbon-color-picker {
+.ribbon-dropdown-group {
+    display: inline-flex;
+    align-items: center;
     position: relative;
-    display: inline-block;
+    background-color: var(--bg-control);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    height: 32px;
+    transition: all var(--transition-fast);
 }
 
-.color-preview-dot {
+.ribbon-dropdown-group:hover {
+    border-color: var(--border-color-hover);
+}
+
+.ribbon-dropdown-group .btn-ribbon {
+    border: none;
+    border-radius: 5px 0 0 5px;
+    background: transparent;
+    height: 30px;
+    width: 32px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.ribbon-dropdown-group .btn-ribbon:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.btn-ribbon-arrow {
+    border: none;
+    border-left: 1px solid var(--border-color);
+    border-radius: 0 5px 5px 0;
+    background: transparent;
+    color: var(--text-secondary);
+    width: 20px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+}
+
+.btn-ribbon-arrow:hover {
+    background-color: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+}
+
+.btn-ribbon-arrow i {
+    width: 12px;
+    height: 12px;
+}
+
+.color-indicator-line {
+    width: 16px;
+    height: 3px;
+    border-radius: 1px;
+    margin-top: 1px;
+    display: block;
+}
+
+/* Floating Color Palette Popup */
+.color-palette-popup {
     position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--text-primary);
-    border: 1px solid var(--bg-panel);
-    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+    top: calc(100% + 6px);
+    left: 0;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: var(--shadow-lg);
+    z-index: 150;
+    width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.color-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.color-cell {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.color-cell:hover {
+    transform: scale(1.25);
+    box-shadow: 0 0 6px rgba(255,255,255,0.25);
+}
+
+.btn-custom-color {
+    background-color: var(--bg-control);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-family: inherit;
+    padding: 4px 0;
+    width: 100%;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.btn-custom-color:hover {
+    background-color: var(--bg-control-hover);
+    color: var(--text-primary);
+    border-color: var(--border-color-hover);
 }
 
 .select-ribbon {

@@ -13,6 +13,9 @@ let workspaceDb = null;
 let isSyncing = false;
 let autoSaveTimeout = null;
 let layoutGuidesActive = false;
+let savedRange = null;
+let currentTextColor = "#ef4444";
+let currentHighlightColor = "#fef08a";
 
 // Credentials
 const ADMIN_USER = "admin";
@@ -476,6 +479,14 @@ function setupIframeVisualEditing() {
     doc.body.addEventListener("mouseup", handleVisualInput);
     doc.body.addEventListener("paste", handleVisualInput);
     doc.body.addEventListener("cut", handleVisualInput);
+
+    // Track active selection range inside the iframe document
+    doc.addEventListener("selectionchange", () => {
+        const sel = iframe.contentWindow.getSelection();
+        if (sel.rangeCount > 0) {
+            savedRange = sel.getRangeAt(0);
+        }
+    });
 }
 
 function syncPreviewToCode(doc) {
@@ -1308,27 +1319,164 @@ function bindEvents() {
         });
     });
 
-    // Color Picker bindings
-    const colorBtn = document.getElementById("ribbon-color-btn");
-    const colorInput = document.getElementById("ribbon-color-input");
-    const colorDot = document.getElementById("color-preview-dot");
+    // --- Custom Color & Highlight Palettes ---
+    
+    // Helper to get active iframe documents
+    const getIframeDoc = () => {
+        const iframe = document.getElementById("preview-iframe");
+        return iframe.contentDocument || iframe.contentWindow.document;
+    };
+    
+    const getIframeWin = () => {
+        const iframe = document.getElementById("preview-iframe");
+        return iframe.contentWindow;
+    };
 
-    colorBtn.addEventListener("mousedown", (e) => {
+    // Text Color bindings
+    const textColorBtn = document.getElementById("ribbon-color-btn");
+    const textColorArrow = document.getElementById("ribbon-color-arrow");
+    const textColorPalette = document.getElementById("text-color-palette");
+    const textColorLine = document.getElementById("text-color-line");
+    const textColorPickerInput = document.getElementById("text-color-picker-input");
+    const textCustomColorTrigger = document.getElementById("text-custom-color-trigger");
+
+    // Click main text color button -> apply current active text color
+    textColorBtn.addEventListener("mousedown", (e) => {
         e.preventDefault();
-        colorInput.click();
+        if (!activeFile) return;
+
+        restoreSelection();
+        getIframeWin().focus();
+        getIframeDoc().execCommand("foreColor", false, currentTextColor);
+        syncPreviewToCode(getIframeDoc());
     });
 
-    colorInput.addEventListener("change", () => {
+    // Click arrow button -> toggle text color palette dropdown
+    textColorArrow.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        textColorPalette.classList.toggle("hidden");
+        document.getElementById("bg-color-palette").classList.add("hidden"); // close background palette
+    });
+
+    // Select color cell from text grid
+    textColorPalette.querySelectorAll(".color-cell").forEach(cell => {
+        cell.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const color = cell.dataset.color;
+            currentTextColor = color;
+            textColorLine.style.backgroundColor = color;
+            textColorPalette.classList.add("hidden");
+
+            restoreSelection();
+            getIframeWin().focus();
+            getIframeDoc().execCommand("foreColor", false, color);
+            syncPreviewToCode(getIframeDoc());
+        });
+    });
+
+    // Custom color trigger
+    textCustomColorTrigger.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        textColorPickerInput.click();
+    });
+
+    // Custom color picker input value changes
+    textColorPickerInput.addEventListener("change", () => {
+        const color = textColorPickerInput.value;
+        currentTextColor = color;
+        textColorLine.style.backgroundColor = color;
+        textColorPalette.classList.add("hidden");
+
+        restoreSelection();
+        getIframeWin().focus();
+        getIframeDoc().execCommand("foreColor", false, color);
+        syncPreviewToCode(getIframeDoc());
+    });
+
+    // Highlight (Background) Color bindings
+    const highlightColorBtn = document.getElementById("ribbon-bg-btn");
+    const highlightColorArrow = document.getElementById("ribbon-bg-arrow");
+    const highlightColorPalette = document.getElementById("bg-color-palette");
+    const highlightColorLine = document.getElementById("bg-color-line");
+    const highlightColorPickerInput = document.getElementById("bg-color-picker-input");
+    const bgCustomColorTrigger = document.getElementById("bg-custom-color-trigger");
+    const bgClearTrigger = document.getElementById("bg-clear-trigger");
+
+    // Click main highlight button -> apply current active highlight color
+    highlightColorBtn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
         if (!activeFile) return;
-        const colorVal = colorInput.value;
-        colorDot.style.backgroundColor = colorVal;
 
-        const iframe = document.getElementById("preview-iframe");
-        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        restoreSelection();
+        getIframeWin().focus();
+        getIframeDoc().execCommand("hiliteColor", false, currentHighlightColor);
+        syncPreviewToCode(getIframeDoc());
+    });
 
-        iframe.contentWindow.focus();
-        doc.execCommand("foreColor", false, colorVal);
-        syncPreviewToCode(doc);
+    // Click arrow button -> toggle background color palette dropdown
+    highlightColorArrow.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        highlightColorPalette.classList.toggle("hidden");
+        textColorPalette.classList.add("hidden"); // close text color palette
+    });
+
+    // Select color cell from background grid
+    highlightColorPalette.querySelectorAll(".color-cell").forEach(cell => {
+        cell.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const color = cell.dataset.color;
+            currentHighlightColor = color;
+            highlightColorLine.style.backgroundColor = color;
+            highlightColorPalette.classList.add("hidden");
+
+            restoreSelection();
+            getIframeWin().focus();
+            getIframeDoc().execCommand("hiliteColor", false, color);
+            syncPreviewToCode(getIframeDoc());
+        });
+    });
+
+    // Clear background highlight
+    bgClearTrigger.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        highlightColorPalette.classList.add("hidden");
+
+        restoreSelection();
+        getIframeWin().focus();
+        getIframeDoc().execCommand("hiliteColor", false, "transparent");
+        syncPreviewToCode(getIframeDoc());
+    });
+
+    // Custom background color trigger
+    bgCustomColorTrigger.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        highlightColorPickerInput.click();
+    });
+
+    // Custom background picker input value changes
+    highlightColorPickerInput.addEventListener("change", () => {
+        const color = highlightColorPickerInput.value;
+        currentHighlightColor = color;
+        highlightColorLine.style.backgroundColor = color;
+        highlightColorPalette.classList.add("hidden");
+
+        restoreSelection();
+        getIframeWin().focus();
+        getIframeDoc().execCommand("hiliteColor", false, color);
+        syncPreviewToCode(getIframeDoc());
+    });
+
+    // Hide color popups when clicking anywhere outside of the ribbon groups
+    document.addEventListener("mousedown", (e) => {
+        const textGroup = document.getElementById("text-color-group");
+        const bgGroup = document.getElementById("bg-color-group");
+        
+        if (textGroup && !textGroup.contains(e.target)) {
+            textColorPalette.classList.add("hidden");
+        }
+        if (bgGroup && !bgGroup.contains(e.target)) {
+            highlightColorPalette.classList.add("hidden");
+        }
     });
 
     // Font size selector bindings
