@@ -658,95 +658,82 @@ function exportToPDF(baseName) {
     showToast("PDF 생성을 시작합니다...");
 
     const iframe = document.getElementById("preview-iframe");
+    if (!iframe || !iframe.contentWindow) {
+        alert("프리뷰 에디터를 찾을 수 없습니다.");
+        return;
+    }
+
     const previewDoc = iframe.contentDocument || iframe.contentWindow.document;
+    const body = previewDoc.body;
 
-    // Clone live preview document body to get exact current state
-    const contentClone = previewDoc.body.cloneNode(true);
+    if (!body) {
+        alert("PDF로 변환할 내용이 없습니다.");
+        return;
+    }
 
-    // Remove editor-specific helper classes & attributes
-    contentClone.removeAttribute("contenteditable");
-    contentClone.classList.remove("show-guides");
-    const helperStyle = contentClone.querySelector("#aether-preview-styles");
-    if (helperStyle) helperStyle.remove();
+    // ── Inject temporary light print style into live preview document ──
+    let styleTag = previewDoc.getElementById("pdf-temp-style");
+    if (!styleTag) {
+        styleTag = previewDoc.createElement("style");
+        styleTag.id = "pdf-temp-style";
+        previewDoc.head.appendChild(styleTag);
+    }
 
-    // Create temporary export container in main document
-    const container = document.createElement("div");
-    container.id = "pdf-export-container";
-    container.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 800px;
-        z-index: -99999;
-        opacity: 1;
-        pointer-events: none;
-        background-color: #ffffff !important;
-        color: #1f2937 !important;
-        overflow: visible !important;
-        height: auto !important;
+    styleTag.innerHTML = `
+        body.pdf-printing {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            color: #1f2937 !important;
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+        }
+        body.pdf-printing div,
+        body.pdf-printing section,
+        body.pdf-printing article,
+        body.pdf-printing main,
+        body.pdf-printing p,
+        body.pdf-printing h1,
+        body.pdf-printing h2,
+        body.pdf-printing h3,
+        body.pdf-printing h4,
+        body.pdf-printing h5,
+        body.pdf-printing h6,
+        body.pdf-printing li,
+        body.pdf-printing table,
+        body.pdf-printing tr,
+        body.pdf-printing td,
+        body.pdf-printing th,
+        body.pdf-printing blockquote,
+        body.pdf-printing pre {
+            background-color: transparent !important;
+            background-image: none !important;
+            color: #1f2937 !important;
+            text-shadow: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+        }
+        body.pdf-printing span[style*="background-color"],
+        body.pdf-printing mark {
+            color: inherit !important;
+        }
     `;
 
-    // Copy head styles from preview iframe to preserve custom layout rules
-    const styleTags = previewDoc.querySelectorAll("style, link[rel='stylesheet']");
-    styleTags.forEach(st => {
-        container.appendChild(st.cloneNode(true));
-    });
+    // Add print class & temporarily disable editable state & outline guides
+    body.classList.add("pdf-printing");
+    const isEditable = body.getAttribute("contenteditable");
+    body.removeAttribute("contenteditable");
+    const hadGuides = body.classList.contains("show-guides");
+    body.classList.remove("show-guides");
 
-    container.appendChild(contentClone);
-    document.body.appendChild(container);
+    const restoreDoc = () => {
+        body.classList.remove("pdf-printing");
+        if (isEditable !== null) body.setAttribute("contenteditable", isEditable);
+        if (hadGuides) body.classList.add("show-guides");
+    };
 
-    // ── DOM Sanitization for Light Multi-page PDF ──
-    const allEls = container.querySelectorAll("*");
-    allEls.forEach(el => {
-        const computed = window.getComputedStyle(el);
-        const tag = el.tagName.toUpperCase();
-
-        // 1. Force overflow & height so multi-page content isn't clipped to 1 page
-        el.style.setProperty("overflow", "visible", "important");
-        if (computed.height !== "auto" && parseInt(computed.height) > 0) {
-            el.style.setProperty("height", "auto", "important");
-            el.style.setProperty("max-height", "none", "important");
-        }
-
-        // 2. Clear dark background from block containers (div, section, p, body, etc.)
-        const isBlock = ["DIV", "SECTION", "ARTICLE", "MAIN", "HEADER", "FOOTER", "NAV", "ASIDE",
-                         "P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "LI", "TABLE", "TR", "TD", "TH", "BLOCKQUOTE", "PRE"].includes(tag);
-
-        if (isBlock) {
-            el.style.setProperty("background-color", "transparent", "important");
-            el.style.setProperty("background-image", "none", "important");
-        }
-
-        // 3. Strip dark inline background-colors (e.g. style="background-color: black")
-        const inlineBg = el.style.backgroundColor;
-        if (inlineBg) {
-            const bgMatch = inlineBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-            if (bgMatch) {
-                const r = parseInt(bgMatch[1]), g = parseInt(bgMatch[2]), b = parseInt(bgMatch[3]);
-                const bgLuma = (r * 299 + g * 587 + b * 114) / 1000;
-                // If background is dark (luma < 120), reset to transparent (preserves bright highlighters like yellow/cyan)
-                if (bgLuma < 120) {
-                    el.style.setProperty("background-color", "transparent", "important");
-                }
-            }
-        }
-
-        // 4. Convert white/light text to dark (#1f2937) so it's readable on white paper
-        const textColor = computed.color;
-        const colorMatch = textColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        if (colorMatch) {
-            const r = parseInt(colorMatch[1]), g = parseInt(colorMatch[2]), b = parseInt(colorMatch[3]);
-            const textLuma = (r * 299 + g * 587 + b * 114) / 1000;
-            // If text is white or light (luma > 170), convert to dark gray/black
-            if (textLuma > 170) {
-                el.style.setProperty("color", "#1f2937", "important");
-            }
-        }
-    });
-
-    // ── Generate Multi-page PDF ──
     const opt = {
-        margin: [12, 12, 12, 12],
+        margin: [10, 10, 10, 10],
         filename: `${baseName}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
@@ -761,22 +748,28 @@ function exportToPDF(baseName) {
         pagebreak: { mode: ["avoid-all", "css", "legacy"] }
     };
 
-    // Small timeout to ensure styles settle
+    // Small delay to ensure CSS paint settles
     setTimeout(() => {
         html2pdf()
             .set(opt)
-            .from(container)
+            .from(body)
             .save()
             .then(() => {
                 showToast("PDF 다운로드 완료");
-                container.remove();
+                restoreDoc();
             })
             .catch(err => {
-                console.error(err);
-                alert("PDF 변환 중 오류가 발생했습니다.");
-                container.remove();
+                console.error("html2pdf failed:", err);
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    showToast("인쇄/PDF 저장 창을 열었습니다.");
+                } catch (printErr) {
+                    alert("PDF 변환 중 오류가 발생했습니다.");
+                }
+                restoreDoc();
             });
-    }, 200);
+    }, 150);
 }
 
 // 2) EPUB Export (using JSZip)
