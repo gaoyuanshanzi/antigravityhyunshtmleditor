@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AetherEdit - Premium HTML Web Editor</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+    
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/dracula.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ================= AUTHENTICATION VIEW ================= -->
+    <div id="auth-screen" class="screen-container active">
+        <div class="glass-panel auth-card animate-fade-in">
+            <div class="auth-header">
+                <div class="logo">
+                    <span class="logo-icon">▲</span>
+                    <span class="logo-text">AetherEdit</span>
+                </div>
+                <p class="auth-subtitle">관리자 계정으로 로그인해 주세요</p>
+            </div>
+            
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="username">관리자 ID</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="password">비밀번호</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+                    </div>
+                </div>
+                <div id="login-error" class="error-msg hidden">
+                    <i data-lucide="alert-circle"></i>
+                    <span>ID 또는 비밀번호가 올바르지 않습니다.</span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>로그인</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MAIN APPLICATION VIEW ================= -->
+    <div id="app-screen" class="screen-container">
+        <!-- Top Navigation -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon">▲</span>
+                    <span class="logo-text">AetherEdit</span>
+                </div>
+                <div class="status-indicator">
+                    <div id="save-status-dot" class="save-status-dot saved"></div>
+                    <span id="save-status-text">저장 완료</span>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="active-file-title" id="active-file-title-container">
+                    <i data-lucide="file-code" class="file-icon"></i>
+                    <span id="active-file-name">선택된 파일 없음</span>
+                    <button class="btn-icon" id="rename-file-btn" title="파일 이름 변경">
+                        <i data-lucide="edit-3"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="user-profile">
+                    <div class="avatar">AD</div>
+                    <span class="username">Admin</span>
+                </div>
+                <button id="logout-btn" class="btn btn-secondary btn-sm">
+                    <i data-lucide="log-out"></i>
+                    <span>로그아웃</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace (Three-Pane Layout) -->
+        <main class="app-workspace">
+            <!-- 1. LEFT PLANE: File Explorer -->
+            <aside class="workspace-pane pane-left" id="pane-left">
+                <div class="pane-header">
+                    <h3>내비게이터</h3>
+                    <div class="pane-actions">
+                        <button id="new-file-btn" class="btn btn-primary btn-sm" title="새 HTML 파일 생성">
+                            <i data-lucide="plus"></i>
+                            <span>New</span>
+                        </button>
+                        <button id="import-btn" class="btn btn-secondary btn-sm" title="HTML 파일 가져오기">
+                            <i data-lucide="upload"></i>
+                            <span>Import</span>
+                        </button>
+                        <!-- Hidden input for file upload -->
+                        <input type="file" id="file-import-input" accept=".html,.htm" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="file-list-container">
+                    <div class="search-bar">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="file-search" placeholder="파일 검색...">
+                    </div>
+                    <ul class="file-list" id="file-list">
+                        <!-- Dynamic file list items -->
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Resize Splitter 1 -->
+            <div class="pane-splitter" id="splitter-left"></div>
+
+            <!-- 2. CENTER PLANE: HTML Code Editor -->
+            <section class="workspace-pane pane-center" id="pane-center">
+                <div class="pane-header">
+                    <div class="pane-title-group">
+                        <i data-lucide="code-2" class="pane-header-icon color-blue"></i>
+                        <h3>소스 에디터</h3>
+                    </div>
+                    <div class="pane-actions">
+                        <button id="export-dropdown-btn" class="btn btn-success btn-sm">
+                            <i data-lucide="download"></i>
+                            <span>Export</span>
+                            <i data-lucide="chevron-down" class="chevron-icon"></i>
+                        </button>
+                        <!-- Dropdown Menu -->
+                        <div id="export-dropdown-menu" class="dropdown-menu hidden">
+                            <div class="dropdown-header">포맷 선택</div>
+                            <button class="dropdown-item" data-format="pdf"><i data-lucide="file-text"></i>PDF 문서 (.pdf)</button>
+                            <button class="dropdown-item" data-format="epub"><i data-lucide="book-open"></i>EPUB 전자책 (.epub)</button>
+                            <button class="dropdown-item" data-format="txt"><i data-lucide="file"></i>텍스트 파일 (.txt)</button>
+                            <button class="dropdown-item" data-format="rtf"><i data-lucide="file-edit"></i>RTF 문서 (.rtf)</button>
+                            <button class="dropdown-item" data-format="word"><i data-lucide="file-box"></i>MS Word (.doc)</button>
+                            <button class="dropdown-item" data-format="hwp"><i data-lucide="file-type"></i>한글 문서 (.hwp)</button>
+                            <button class="dropdown-item" data-format="md"><i data-lucide="markdown"></i>마크다운 (.md)</button>
+                            <button class="dropdown-item" data-format="csv"><i data-lucide="table"></i>CSV 표 데이터 (.csv)</button>
+                            <button class="dropdown-item" data-format="json"><i data-lucide="braces"></i>JSON 데이터 (.json)</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="editor-container" id="editor-container">
+                    <!-- CodeMirror editor will be injected here -->
+                    <div id="editor-placeholder" class="editor-placeholder">
+                        <i data-lucide="file-code" class="large-icon"></i>
+                        <p>내비게이터에서 파일을 선택하거나 새로 생성하세요.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Resize Splitter 2 -->
+            <div class="pane-splitter" id="splitter-right"></div>
+
+            <!-- 3. RIGHT PLANE: Visual Browser Preview / Editor -->
+            <section class="workspace-pane pane-right" id="pane-right">
+                <div class="pane-header">
+                    <div class="pane-title-group">
+                        <i data-lucide="eye" class="pane-header-icon color-green"></i>
+                        <h3>비주얼 에디터 (실시간)</h3>
+                    </div>
+                    <div class="pane-actions">
+                        <button id="toggle-borders-btn" class="btn btn-secondary btn-sm" title="레이아웃 가이드 표시/숨기기">
+                            <i data-lucide="layout"></i>
+                            <span>가이드선 토글</span>
+                        </button>
+                        <button id="preview-width-toggle" class="btn btn-secondary btn-icon-only" title="화면 너비 테스트">
+                            <i data-lucide="monitor"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="preview-container" id="preview-container">
+                    <!-- Preview IFrame wrapper for responsive view scaling -->
+                    <div class="preview-iframe-wrapper" id="preview-iframe-wrapper">
+                        <iframe id="preview-iframe" sandbox="allow-same-origin allow-scripts allow-modals"></iframe>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Rename File Dialog (Custom Glass Modal) -->
+    <div id="rename-modal" class="modal-overlay hidden">
+        <div class="glass-panel modal-card">
+            <h3>파일 이름 변경</h3>
+            <div class="input-group">
+                <label for="new-filename-input">새 HTML 파일명</label>
+                <div class="input-wrapper">
+                    <i data-lucide="file-input"></i>
+                    <input type="text" id="new-filename-input" placeholder="filename.html">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="rename-cancel" class="btn btn-secondary">취소</button>
+                <button id="rename-confirm" class="btn btn-primary">변경</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New File Dialog (Custom Glass Modal) -->
+    <div id="new-file-modal" class="modal-overlay hidden">
+        <div class="glass-panel modal-card">
+            <h3>새 HTML 파일 만들기</h3>
+            <p class="modal-description">새로 생성할 HTML 파일의 이름을 입력하세요.</p>
+            <div class="input-group">
+                <label for="new-file-input">HTML 파일명</label>
+                <div class="input-wrapper">
+                    <i data-lucide="file-input"></i>
+                    <input type="text" id="new-file-input" placeholder="untitled.html">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="new-file-cancel" class="btn btn-secondary">취소</button>
+                <button id="new-file-confirm" class="btn btn-primary">생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Notification Overlay -->
+    <div id="toast" class="toast hidden">
+        <i data-lucide="check-circle" class="toast-icon"></i>
+        <span id="toast-message">성공적으로 처리되었습니다.</span>
+    </div>
+
+    <!-- Libraries via CDN -->
+    <!-- CodeMirror Core and Modes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/htmlmixed/htmlmixed.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Exporting libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+
+    <!-- Custom Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
