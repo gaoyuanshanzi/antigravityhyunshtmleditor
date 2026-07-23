@@ -607,10 +607,13 @@ async function exportActiveFile(format) {
         return;
     }
 
-    const htmlContent = codeEditor.getValue();
+    const htmlContent = codeEditor ? codeEditor.getValue() : (activeFile ? activeFile.content : "");
     const baseName = activeFile.name.replace(/\.html?$/, '');
     
     switch (format) {
+        case "html":
+            exportToHTML(baseName, htmlContent);
+            break;
         case "pdf":
             exportToPDF(baseName);
             break;
@@ -641,6 +644,13 @@ async function exportActiveFile(format) {
         default:
             console.error("Unknown export format: " + format);
     }
+}
+
+// 0) HTML Export
+function exportToHTML(baseName, htmlContent) {
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
+    downloadBlob(blob, `${baseName}.html`);
+    showToast("HTML 파일 다운로드 완료");
 }
 
 // 1) PDF Export (using html2pdf.js)
