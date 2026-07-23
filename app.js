@@ -85,49 +85,8 @@ function showAppScreen() {
     loadWorkspace();
 }
 
-// Login form submit handler
-document.getElementById("login-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const userVal = document.getElementById("username").value.trim();
-    const passVal = document.getElementById("password").value;
-    const errorMsg = document.getElementById("login-error");
-
-    if (userVal === ADMIN_USER && passVal === ADMIN_PASS) {
-        errorMsg.classList.add("hidden");
-        sessionStorage.setItem("ae_logged_in", "true");
-        showAppScreen();
-        showToast("관리자 로그인 성공");
-    } else {
-        errorMsg.classList.remove("hidden");
-        // Shake animation on auth card
-        const card = document.querySelector(".auth-card");
-        card.style.animation = 'none';
-        card.offsetHeight; // trigger reflow
-        card.style.animation = 'shake 0.4s ease';
-    }
-});
-
-// Logout handler
-document.getElementById("logout-btn").addEventListener("click", () => {
-    sessionStorage.removeItem("ae_logged_in");
-    activeFile = null;
-    if (codeEditor) {
-        codeEditor.toTextArea();
-        codeEditor = null;
-        document.getElementById("editor-container").innerHTML = `
-            <div id="editor-placeholder" class="editor-placeholder">
-                <i data-lucide="file-code" class="large-icon"></i>
-                <p>내비게이터에서 파일을 선택하거나 새로 생성하세요.</p>
-            </div>
-        `;
-        lucide.createIcons();
-    }
-    const iframe = document.getElementById("preview-iframe");
-    iframe.srcdoc = "";
-    document.getElementById("active-file-name").textContent = "선택된 파일 없음";
-    showAuthScreen();
-    showToast("로그아웃 되었습니다.");
-});
+// NOTE: Login and logout listeners are registered in bindEvents()
+// which runs after DOMContentLoaded to ensure elements exist.
 
 // CSS shake animation keyframe inject for password failures
 const styleSheet = document.createElement("style");
@@ -643,8 +602,8 @@ async function renameActiveFile(newFilename) {
    8. EXPORT ENGINE
    ========================================================================== */
 async function exportActiveFile(format) {
-    if (!activeFile || !codeEditor) {
-        alert("수출할 파일이 없습니다.");
+    if (!activeFile) {
+        alert("수출할 파일이 없습니다. 먼저 파일을 선택하세요.");
         return;
     }
 
@@ -1110,6 +1069,56 @@ function initResizers() {
 }
 
 function bindEvents() {
+    // --- Login Form Submit ---
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const userVal = document.getElementById("username").value.trim();
+            const passVal = document.getElementById("password").value;
+            const errorMsg = document.getElementById("login-error");
+
+            if (userVal === ADMIN_USER && passVal === ADMIN_PASS) {
+                errorMsg.classList.add("hidden");
+                sessionStorage.setItem("ae_logged_in", "true");
+                showAppScreen();
+                showToast("관리자 로그인 성공");
+            } else {
+                errorMsg.classList.remove("hidden");
+                const card = document.querySelector(".auth-card");
+                card.style.animation = "none";
+                card.offsetHeight;
+                card.style.animation = "shake 0.4s ease";
+            }
+        });
+    }
+
+    // --- Logout Button ---
+    const logoutBtn = document.getElementById("logout-btn");
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            sessionStorage.removeItem("ae_logged_in");
+            activeFile = null;
+            if (codeEditor) {
+                try { codeEditor.toTextArea(); } catch(e) {}
+                codeEditor = null;
+            }
+            document.getElementById("editor-container").innerHTML = `
+                <div id="editor-placeholder" class="editor-placeholder">
+                    <i data-lucide="file-code" class="large-icon"></i>
+                    <p>내비게이터에서 파일을 선택하거나 새로 생성하세요.</p>
+                </div>
+            `;
+            lucide.createIcons();
+            const iframe = document.getElementById("preview-iframe");
+            if (iframe) iframe.srcdoc = "";
+            const activeFileName = document.getElementById("active-file-name");
+            if (activeFileName) activeFileName.textContent = "선택된 파일 없음";
+            showAuthScreen();
+            showToast("로그아웃 되었습니다.");
+        });
+    }
+
     // --- New File Modal Events ---
     const newFileBtn = document.getElementById("new-file-btn");
     const newFileModal = document.getElementById("new-file-modal");
