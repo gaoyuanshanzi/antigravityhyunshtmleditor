@@ -1185,12 +1185,21 @@ function bindEvents() {
 
     newFileBtn.addEventListener("click", () => {
         newFileInput.value = "";
+        newFileModal.classList.remove("hidden");
         newFileModal.classList.add("active");
-        newFileInput.focus();
+        setTimeout(() => newFileInput.focus(), 50);
     });
 
     newFileCancel.addEventListener("click", () => {
         newFileModal.classList.remove("active");
+        newFileModal.classList.add("hidden");
+    });
+
+    newFileModal.addEventListener("click", (e) => {
+        if (e.target === newFileModal) {
+            newFileModal.classList.remove("active");
+            newFileModal.classList.add("hidden");
+        }
     });
 
     newFileConfirm.addEventListener("click", async () => {
@@ -1234,12 +1243,14 @@ function bindEvents() {
         newFileObj.id = id;
 
         newFileModal.classList.remove("active");
+        newFileModal.classList.add("hidden");
         showToast("새 파일이 생성되었습니다.");
         
         // Trigger initial download to local download folder
         triggerInitialDownload(filename, blankContent);
         
-        loadWorkspace();
+        await loadWorkspace();
+        selectFile(newFileObj);
     });
 
     // Accept Enter key in new file modal input
@@ -1285,7 +1296,8 @@ function bindEvents() {
             // Clear input selection
             fileImportInput.value = "";
             
-            loadWorkspace();
+            await loadWorkspace();
+            selectFile(importedFileObj);
         };
         reader.readAsText(file);
     });
@@ -1300,12 +1312,21 @@ function bindEvents() {
     renameBtn.addEventListener("click", () => {
         if (!activeFile) return;
         renameInput.value = activeFile.name;
+        renameModal.classList.remove("hidden");
         renameModal.classList.add("active");
-        renameInput.focus();
+        setTimeout(() => renameInput.focus(), 50);
     });
 
     renameCancel.addEventListener("click", () => {
         renameModal.classList.remove("active");
+        renameModal.classList.add("hidden");
+    });
+
+    renameModal.addEventListener("click", (e) => {
+        if (e.target === renameModal) {
+            renameModal.classList.remove("active");
+            renameModal.classList.add("hidden");
+        }
     });
 
     renameConfirm.addEventListener("click", async () => {
@@ -1314,6 +1335,7 @@ function bindEvents() {
             const success = await renameActiveFile(newName);
             if (success) {
                 renameModal.classList.remove("active");
+                renameModal.classList.add("hidden");
             }
         }
     });
