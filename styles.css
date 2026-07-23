@@ -1011,6 +1011,37 @@ body {
     box-shadow: 0 0 2px rgba(0,0,0,0.5);
 }
 
+.select-ribbon {
+    background-color: var(--bg-control);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 0 28px 0 10px;
+    height: 32px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg fill='%23a0a0b0' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+}
+
+.select-ribbon:hover, .select-ribbon:focus {
+    background-color: var(--bg-control-hover);
+    color: var(--text-primary);
+    border-color: var(--border-color-hover);
+}
+
+.select-ribbon option {
+    background-color: var(--bg-panel);
+    color: var(--text-primary);
+}
+
 /* ==========================================================================
    ANIMATIONS & KEYFRAMES
    ========================================================================== */

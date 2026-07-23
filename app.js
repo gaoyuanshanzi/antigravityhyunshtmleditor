@@ -664,23 +664,93 @@ function exportToPDF(baseName) {
     const iframe = document.getElementById("preview-iframe");
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     
-    // Create a printable wrapper to avoid margins
-    const element = doc.body;
+    showToast("PDF 생성을 시작합니다...");
+    
+    // Clone the iframe's body to prepare a clean printable layout
+    const bodyClone = doc.body.cloneNode(true);
+    
+    // Remove custom visual editing styles and guide borders
+    bodyClone.removeAttribute("contenteditable");
+    bodyClone.classList.remove("show-guides");
+    const helperStyle = bodyClone.querySelector("#aether-preview-styles");
+    if (helperStyle) helperStyle.remove();
+    
+    // Create a temporary print container in the main document to ensure complete page breaking and avoid background leakage
+    const printContainer = document.createElement("div");
+    printContainer.id = "aether-print-container";
+    printContainer.style.position = "absolute";
+    printContainer.style.left = "-9999px";
+    printContainer.style.top = "0";
+    printContainer.style.width = "820px"; // A4 printing optimized width
+    printContainer.style.background = "#ffffff";
+    printContainer.style.color = "#1f2937";
+    printContainer.style.overflow = "visible";
+    printContainer.style.height = "auto";
+    
+    // Copy head style sheets if present inside iframe
+    const styleTags = doc.querySelectorAll("style, link[rel='stylesheet']");
+    styleTags.forEach(style => {
+        printContainer.appendChild(style.cloneNode(true));
+    });
+    
+    // Append the clean body structure
+    printContainer.appendChild(bodyClone);
+    
+    // Add print-specific style overrides to force light backgrounds and dark text
+    const printOverrides = document.createElement("style");
+    printOverrides.innerHTML = `
+        #aether-print-container, 
+        #aether-print-container body {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            color: #1f2937 !important;
+            height: auto !important;
+            overflow: visible !important;
+            max-height: none !important;
+            padding: 20px !important;
+        }
+        #aether-print-container h1, 
+        #aether-print-container h2, 
+        #aether-print-container h3, 
+        #aether-print-container h4, 
+        #aether-print-container h5, 
+        #aether-print-container h6,
+        #aether-print-container p,
+        #aether-print-container span,
+        #aether-print-container div,
+        #aether-print-container li,
+        #aether-print-container td,
+        #aether-print-container th {
+            color: #1f2937 !important;
+            text-shadow: none !important;
+        }
+    `;
+    printContainer.appendChild(printOverrides);
+    
+    document.body.appendChild(printContainer);
 
     const opt = {
-        margin:       10,
+        margin:       15,
         filename:     `${baseName}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas:  { 
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff'
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    showToast("PDF 생성을 시작합니다...");
-    html2pdf().set(opt).from(element).save()
-        .then(() => showToast("PDF 다운로드 완료"))
+    html2pdf().set(opt).from(printContainer).save()
+        .then(() => {
+            showToast("PDF 다운로드 완료");
+            printContainer.remove();
+        })
         .catch(err => {
             console.error(err);
             alert("PDF 변환 중 오류가 발생했습니다.");
+            printContainer.remove();
         });
 }
 
@@ -767,6 +837,10 @@ function exportToEPUB(baseName, htmlContent) {
 function exportToTXT(baseName, htmlContent) {
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlContent;
+    
+    // Remove style and script elements to prevent style definitions from printing in txt
+    tempDiv.querySelectorAll("style, script").forEach(el => el.remove());
+    
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
     
     const blob = new Blob([plainText], { type: "text/plain;charset=utf-8;" });
@@ -1256,6 +1330,26 @@ function bindEvents() {
         doc.execCommand("foreColor", false, colorVal);
         syncPreviewToCode(doc);
     });
+
+    // Font size selector bindings
+    const fontSizeSelect = document.getElementById("ribbon-font-size");
+    if (fontSizeSelect) {
+        fontSizeSelect.addEventListener("change", () => {
+            if (!activeFile) return;
+            const sizeVal = fontSizeSelect.value;
+            if (sizeVal) {
+                const iframe = document.getElementById("preview-iframe");
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+
+                iframe.contentWindow.focus();
+                doc.execCommand("fontSize", false, sizeVal);
+                syncPreviewToCode(doc);
+                
+                // Reset select index
+                fontSizeSelect.value = "";
+            }
+        });
+    }
 }
 
 /* ==========================================================================
