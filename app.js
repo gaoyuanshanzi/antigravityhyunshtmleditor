@@ -671,66 +671,70 @@ function exportToPDF(baseName) {
         return;
     }
 
-    // ── Inject temporary light print style into live preview document ──
-    let styleTag = previewDoc.getElementById("pdf-temp-style");
-    if (!styleTag) {
-        styleTag = previewDoc.createElement("style");
-        styleTag.id = "pdf-temp-style";
-        previewDoc.head.appendChild(styleTag);
-    }
+    // Save original styles of html and body
+    const origHtmlStyle = previewDoc.documentElement.getAttribute("style");
+    const origBodyStyle = body.getAttribute("style");
 
-    styleTag.innerHTML = `
-        body.pdf-printing {
-            background-color: #ffffff !important;
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            height: auto !important;
-            min-height: 100% !important;
-            max-height: none !important;
-            overflow: visible !important;
-        }
-        body.pdf-printing * {
-            max-height: none !important;
-            overflow: visible !important;
-        }
-    `;
+    // Force html and body backgrounds to pure white
+    previewDoc.documentElement.style.setProperty("background-color", "#ffffff", "important");
+    previewDoc.documentElement.style.setProperty("background", "#ffffff", "important");
+    previewDoc.documentElement.style.setProperty("color", "#1f2937", "important");
 
-    // Save original inline style attributes before sanitizing
+    body.style.setProperty("background-color", "#ffffff", "important");
+    body.style.setProperty("background", "#ffffff", "important");
+    body.style.setProperty("color", "#1f2937", "important");
+    body.style.setProperty("height", "auto", "important");
+    body.style.setProperty("min-height", "100%", "important");
+    body.style.setProperty("max-height", "none", "important");
+    body.style.setProperty("overflow", "visible", "important");
+
+    // Scan all DOM elements using Computed Styles to neutralize dark mode
     const modifiedStyles = [];
     const allElements = body.querySelectorAll("*");
 
     allElements.forEach(el => {
-        const origStyle = el.getAttribute("style");
-        let changed = false;
+        const computed = previewDoc.defaultView.getComputedStyle(el);
+        const computedBg = computed.backgroundColor;
+        const computedColor = computed.color;
 
-        // 1. Check & strip dark inline background colors (e.g. style="background-color: black")
-        const styleBg = el.style.backgroundColor;
-        if (styleBg) {
-            const match = styleBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        let isDarkBg = false;
+        if (computedBg && computedBg !== "transparent" && computedBg !== "rgba(0, 0, 0, 0)") {
+            const match = computedBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
             if (match) {
                 const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
                 const luma = (r * 299 + g * 587 + b * 114) / 1000;
-                // If background is dark (luma < 150), remove the inline background
-                if (luma < 150) {
-                    el.style.backgroundColor = "transparent";
-                    changed = true;
+                // If computed background is dark (Luma < 160), force to white
+                if (luma < 160) {
+                    isDarkBg = true;
                 }
             }
         }
 
-        // 2. Check & fix white/light inline text colors (e.g. style="color: white")
-        const styleColor = el.style.color;
-        if (styleColor) {
-            const match = styleColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        let isLightText = false;
+        if (computedColor) {
+            const match = computedColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
             if (match) {
                 const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
                 const luma = (r * 299 + g * 587 + b * 114) / 1000;
-                // If text color is light (luma > 170), change to dark gray #1f2937
-                if (luma > 170) {
-                    el.style.color = "#1f2937";
-                    changed = true;
+                // If computed text color is light/white (Luma > 160), convert to dark gray #1f2937
+                if (luma > 160) {
+                    isLightText = true;
                 }
             }
+        }
+
+        const origStyle = el.getAttribute("style");
+        let changed = false;
+
+        if (isDarkBg) {
+            el.style.setProperty("background-color", "#ffffff", "important");
+            el.style.setProperty("background", "#ffffff", "important");
+            changed = true;
+        }
+
+        if (isLightText) {
+            el.style.setProperty("color", "#1f2937", "important");
+            changed = true;
         }
 
         if (changed) {
@@ -738,15 +742,24 @@ function exportToPDF(baseName) {
         }
     });
 
-    // Add print class & temporarily disable editable state & outline guides
-    body.classList.add("pdf-printing");
     const isEditable = body.getAttribute("contenteditable");
     body.removeAttribute("contenteditable");
     const hadGuides = body.classList.contains("show-guides");
     body.classList.remove("show-guides");
 
     const restoreDoc = () => {
-        body.classList.remove("pdf-printing");
+        if (origHtmlStyle !== null) {
+            previewDoc.documentElement.setAttribute("style", origHtmlStyle);
+        } else {
+            previewDoc.documentElement.removeAttribute("style");
+        }
+
+        if (origBodyStyle !== null) {
+            body.setAttribute("style", origBodyStyle);
+        } else {
+            body.removeAttribute("style");
+        }
+
         if (isEditable !== null) body.setAttribute("contenteditable", isEditable);
         if (hadGuides) body.classList.add("show-guides");
 
@@ -760,7 +773,7 @@ function exportToPDF(baseName) {
         });
     };
 
-    // Calculate full document scroll height across all pages
+    // Calculate full document scroll height across all 12+ pages
     const fullHeight = Math.max(
         body.scrollHeight,
         body.offsetHeight,
@@ -786,7 +799,6 @@ function exportToPDF(baseName) {
         pagebreak: { mode: ["avoid-all", "css", "legacy"] }
     };
 
-    // Small delay to ensure CSS paint settles
     setTimeout(() => {
         html2pdf()
             .set(opt)
