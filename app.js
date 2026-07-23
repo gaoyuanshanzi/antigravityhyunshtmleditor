@@ -1216,6 +1216,46 @@ function bindEvents() {
             exportActiveFile(format);
         });
     });
+
+    // --- Visual Editor Formatting Ribbon ---
+    const ribbonButtons = document.querySelectorAll(".btn-ribbon[data-cmd]");
+    ribbonButtons.forEach(btn => {
+        btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            if (!activeFile) return;
+
+            const cmd = btn.dataset.cmd;
+            const iframe = document.getElementById("preview-iframe");
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+
+            iframe.contentWindow.focus();
+            doc.execCommand(cmd, false, null);
+            syncPreviewToCode(doc);
+        });
+    });
+
+    // Color Picker bindings
+    const colorBtn = document.getElementById("ribbon-color-btn");
+    const colorInput = document.getElementById("ribbon-color-input");
+    const colorDot = document.getElementById("color-preview-dot");
+
+    colorBtn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        colorInput.click();
+    });
+
+    colorInput.addEventListener("change", () => {
+        if (!activeFile) return;
+        const colorVal = colorInput.value;
+        colorDot.style.backgroundColor = colorVal;
+
+        const iframe = document.getElementById("preview-iframe");
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+
+        iframe.contentWindow.focus();
+        doc.execCommand("foreColor", false, colorVal);
+        syncPreviewToCode(doc);
+    });
 }
 
 /* ==========================================================================

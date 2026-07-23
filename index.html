@@ -184,6 +184,35 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- Formatting Ribbon Menu -->
+                <div class="format-ribbon" id="format-ribbon">
+                    <button class="btn-ribbon" data-cmd="bold" title="굵게 (Bold)">
+                        <i data-lucide="bold"></i>
+                    </button>
+                    <button class="btn-ribbon" data-cmd="italic" title="기울임꼴 (Italic)">
+                        <i data-lucide="italic"></i>
+                    </button>
+                    <button class="btn-ribbon" data-cmd="underline" title="밑줄 (Underline)">
+                        <i data-lucide="underline"></i>
+                    </button>
+                    <div class="ribbon-divider"></div>
+                    <button class="btn-ribbon" data-cmd="superscript" title="위첨자 (Superscript)">
+                        <i data-lucide="superscript"></i>
+                    </button>
+                    <button class="btn-ribbon" data-cmd="subscript" title="아래첨자 (Subscript)">
+                        <i data-lucide="subscript"></i>
+                    </button>
+                    <div class="ribbon-divider"></div>
+                    <div class="ribbon-color-picker">
+                        <button class="btn-ribbon" id="ribbon-color-btn" title="글자색 (Text Color)">
+                            <i data-lucide="palette"></i>
+                            <span class="color-preview-dot" id="color-preview-dot"></span>
+                        </button>
+                        <input type="color" id="ribbon-color-input" style="display: none;">
+                    </div>
+                </div>
+
                 <div class="preview-container" id="preview-container">
                     <!-- Preview IFrame wrapper for responsive view scaling -->
                     <div class="preview-iframe-wrapper" id="preview-iframe-wrapper">

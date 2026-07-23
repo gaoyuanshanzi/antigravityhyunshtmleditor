@@ -943,6 +943,75 @@ body {
 }
 
 /* ==========================================================================
+   FORMATTING RIBBON BAR
+   ========================================================================== */
+.format-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.btn-ribbon {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.btn-ribbon:hover {
+    background-color: var(--bg-control);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.btn-ribbon.active {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: var(--accent-purple);
+    border-color: rgba(139, 92, 246, 0.35);
+}
+
+.btn-ribbon i {
+    width: 16px;
+    height: 16px;
+}
+
+.ribbon-divider {
+    width: 1px;
+    height: 18px;
+    background-color: var(--border-color);
+    margin: 0 4px;
+}
+
+.ribbon-color-picker {
+    position: relative;
+    display: inline-block;
+}
+
+.color-preview-dot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-primary);
+    border: 1px solid var(--bg-panel);
+    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+/* ==========================================================================
    ANIMATIONS & KEYFRAMES
    ========================================================================== */
 .animate-fade-in {
