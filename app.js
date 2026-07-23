@@ -647,122 +647,125 @@ async function exportActiveFile(format) {
 function exportToPDF(baseName) {
     showToast("PDF 생성을 시작합니다...");
 
-    const rawHTML = activeFile ? activeFile.content : codeEditor.getValue();
+    const iframe = document.getElementById("preview-iframe");
+    const previewDoc = iframe.contentDocument || iframe.contentWindow.document;
 
-    // ── Light-theme override ────────────────────────────────────────────────
-    // Override backgrounds on EVERY block element to white/transparent so
-    // the user's document CSS (dark divs, dark sections, etc.) is neutralised.
-    // Inline highlight spans (background-color in style attr) are preserved
-    // because inline styles win over class-based CSS — that's intentional.
-    const lightOverride = `<style id="pdf-light-override">
-        html {
-            background: #ffffff !important;
+    // Clone live preview document body to get exact current state
+    const contentClone = previewDoc.body.cloneNode(true);
+
+    // Remove editor-specific helper classes & attributes
+    contentClone.removeAttribute("contenteditable");
+    contentClone.classList.remove("show-guides");
+    const helperStyle = contentClone.querySelector("#aether-preview-styles");
+    if (helperStyle) helperStyle.remove();
+
+    // Create temporary export container in main document
+    const container = document.createElement("div");
+    container.id = "pdf-export-container";
+    container.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 800px;
+        z-index: -99999;
+        opacity: 0.01;
+        background-color: #ffffff !important;
+        color: #1f2937 !important;
+        overflow: visible !important;
+        height: auto !important;
+    `;
+
+    // Copy head styles from preview iframe to preserve custom layout rules
+    const styleTags = previewDoc.querySelectorAll("style, link[rel='stylesheet']");
+    styleTags.forEach(st => {
+        container.appendChild(st.cloneNode(true));
+    });
+
+    container.appendChild(contentClone);
+    document.body.appendChild(container);
+
+    // ── DOM Sanitization for Light Multi-page PDF ──
+    const allEls = container.querySelectorAll("*");
+    allEls.forEach(el => {
+        const computed = window.getComputedStyle(el);
+        const tag = el.tagName.toUpperCase();
+
+        // 1. Force overflow & height so multi-page content isn't clipped to 1 page
+        el.style.setProperty("overflow", "visible", "important");
+        if (computed.height !== "auto" && parseInt(computed.height) > 0) {
+            el.style.setProperty("height", "auto", "important");
+            el.style.setProperty("max-height", "none", "important");
         }
-        body {
-            background: #ffffff !important;
-            background-color: #ffffff !important;
-            color: #1f2937 !important;
-            margin: 0 !important;
-            padding: 20px !important;
+
+        // 2. Clear dark background from block containers (div, section, p, body, etc.)
+        const isBlock = ["DIV", "SECTION", "ARTICLE", "MAIN", "HEADER", "FOOTER", "NAV", "ASIDE",
+                         "P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "LI", "TABLE", "TR", "TD", "TH", "BLOCKQUOTE", "PRE"].includes(tag);
+
+        if (isBlock) {
+            el.style.setProperty("background-color", "transparent", "important");
+            el.style.setProperty("background-image", "none", "important");
         }
-        div, section, article, main, header, footer, nav, aside,
-        form, fieldset, figure, figcaption, details, summary,
-        ul, ol, li, dl, dt, dd,
-        table, thead, tbody, tfoot, tr, th, td,
-        h1, h2, h3, h4, h5, h6,
-        p, blockquote, pre, address, hr {
-            background-color: transparent !important;
-            background-image: none !important;
-            color: #1f2937 !important;
-            text-shadow: none !important;
-            border-color: rgba(0,0,0,0.15) !important;
-            box-shadow: none !important;
+
+        // 3. Strip dark inline background-colors (e.g. style="background-color: black")
+        const inlineBg = el.style.backgroundColor;
+        if (inlineBg) {
+            const bgMatch = inlineBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (bgMatch) {
+                const r = parseInt(bgMatch[1]), g = parseInt(bgMatch[2]), b = parseInt(bgMatch[3]);
+                const bgLuma = (r * 299 + g * 587 + b * 114) / 1000;
+                // If background is dark (luma < 120), reset to transparent (preserves bright highlighters like yellow/cyan)
+                if (bgLuma < 120) {
+                    el.style.setProperty("background-color", "transparent", "important");
+                }
+            }
         }
-        a { color: #2563eb !important; }
-        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    </style>`;
 
-    // Inject right before </head>, or prepend if there is no head
-    let cleanHTML;
-    const headCloseIdx = rawHTML.toLowerCase().lastIndexOf("</head>");
-    if (headCloseIdx !== -1) {
-        cleanHTML = rawHTML.slice(0, headCloseIdx) + lightOverride + rawHTML.slice(headCloseIdx);
-    } else {
-        cleanHTML = lightOverride + rawHTML;
-    }
+        // 4. Convert white/light text to dark (#1f2937) so it's readable on white paper
+        const textColor = computed.color;
+        const colorMatch = textColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (colorMatch) {
+            const r = parseInt(colorMatch[1]), g = parseInt(colorMatch[2]), b = parseInt(colorMatch[3]);
+            const textLuma = (r * 299 + g * 587 + b * 114) / 1000;
+            // If text is white or light (luma > 170), convert to dark gray/black
+            if (textLuma > 170) {
+                el.style.setProperty("color", "#1f2937", "important");
+            }
+        }
+    });
 
-    // ── Hidden print iframe ─────────────────────────────────────────────────
-    // Use opacity:0.01 (not visibility:hidden / display:none) so the browser
-    // fully lays out the document and html2canvas can measure real heights.
-    const printFrame = document.createElement("iframe");
-    printFrame.setAttribute("sandbox", "allow-same-origin allow-scripts");
-    printFrame.style.cssText = [
-        "position:fixed",
-        "top:0",
-        "left:0",
-        "width:820px",
-        "height:100vh",   // temporary — will be expanded after load
-        "border:none",
-        "z-index:-9999",
-        "opacity:0.01",
-        "pointer-events:none"
-    ].join(";");
-    document.body.appendChild(printFrame);
-
-    printFrame.onload = () => {
-        const printDoc = printFrame.contentDocument;
-
-        // Give the browser a tick to finish painting, then measure true height
-        setTimeout(() => {
-            const fullH = Math.max(
-                printDoc.documentElement.scrollHeight,
-                printDoc.documentElement.offsetHeight,
-                printDoc.body.scrollHeight,
-                printDoc.body.offsetHeight
-            );
-
-            // Expand iframe so html2canvas can see the whole document
-            printFrame.style.height = fullH + "px";
-
-            // One more tick for the reflow to settle
-            setTimeout(() => {
-                const opt = {
-                    margin: [10, 12, 10, 12],
-                    filename: `${baseName}.pdf`,
-                    image: { type: "jpeg", quality: 0.98 },
-                    html2canvas: {
-                        scale: 2,
-                        useCORS: true,
-                        allowTaint: true,
-                        backgroundColor: "#ffffff",
-                        scrollY: 0,
-                        scrollX: 0,
-                        width: 820,
-                        windowWidth: 820,
-                        windowHeight: fullH
-                    },
-                    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-                    pagebreak: { mode: ["css", "legacy"] }
-                };
-
-                html2pdf()
-                    .set(opt)
-                    .from(printDoc.body)
-                    .save()
-                    .then(() => {
-                        showToast("PDF 다운로드 완료");
-                        printFrame.remove();
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        alert("PDF 변환 중 오류가 발생했습니다.");
-                        printFrame.remove();
-                    });
-            }, 300);
-        }, 600);
+    // ── Generate Multi-page PDF ──
+    const opt = {
+        margin: [12, 12, 12, 12],
+        filename: `${baseName}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff",
+            scrollY: 0,
+            scrollX: 0
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] }
     };
 
-    printFrame.srcdoc = cleanHTML;
+    // Small timeout to ensure styles settle
+    setTimeout(() => {
+        html2pdf()
+            .set(opt)
+            .from(container)
+            .save()
+            .then(() => {
+                showToast("PDF 다운로드 완료");
+                container.remove();
+            })
+            .catch(err => {
+                console.error(err);
+                alert("PDF 변환 중 오류가 발생했습니다.");
+                container.remove();
+            });
+    }, 200);
 }
 
 // 2) EPUB Export (using JSZip)
