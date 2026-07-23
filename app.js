@@ -686,26 +686,44 @@ async function exportActiveFile(format) {
 
 // 1) PDF Export (using html2pdf.js)
 function exportToPDF(baseName) {
-    const iframe = document.getElementById("preview-iframe");
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-
     showToast("PDF 생성을 시작합니다...");
 
-    // Build a clean standalone HTML string from the current file content
-    // Strip the helper style tag and contenteditable before conversion
     const rawHTML = activeFile ? activeFile.content : codeEditor.getValue();
 
-    // Inject a light-theme override style so dark backgrounds never appear in PDF
+    // ── Light-theme override ────────────────────────────────────────────────
+    // Override backgrounds on EVERY block element to white/transparent so
+    // the user's document CSS (dark divs, dark sections, etc.) is neutralised.
+    // Inline highlight spans (background-color in style attr) are preserved
+    // because inline styles win over class-based CSS — that's intentional.
     const lightOverride = `<style id="pdf-light-override">
-        html, body {
+        html {
+            background: #ffffff !important;
+        }
+        body {
             background: #ffffff !important;
             background-color: #ffffff !important;
             color: #1f2937 !important;
+            margin: 0 !important;
+            padding: 20px !important;
         }
+        div, section, article, main, header, footer, nav, aside,
+        form, fieldset, figure, figcaption, details, summary,
+        ul, ol, li, dl, dt, dd,
+        table, thead, tbody, tfoot, tr, th, td,
+        h1, h2, h3, h4, h5, h6,
+        p, blockquote, pre, address, hr {
+            background-color: transparent !important;
+            background-image: none !important;
+            color: #1f2937 !important;
+            text-shadow: none !important;
+            border-color: rgba(0,0,0,0.15) !important;
+            box-shadow: none !important;
+        }
+        a { color: #2563eb !important; }
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     </style>`;
 
-    // Insert the override right before </head>, or prepend if no head tag
+    // Inject right before </head>, or prepend if there is no head
     let cleanHTML;
     const headCloseIdx = rawHTML.toLowerCase().lastIndexOf("</head>");
     if (headCloseIdx !== -1) {
@@ -714,40 +732,75 @@ function exportToPDF(baseName) {
         cleanHTML = lightOverride + rawHTML;
     }
 
-    // Create a hidden iframe to render the clean HTML, then capture it
+    // ── Hidden print iframe ─────────────────────────────────────────────────
+    // Use opacity:0.01 (not visibility:hidden / display:none) so the browser
+    // fully lays out the document and html2canvas can measure real heights.
     const printFrame = document.createElement("iframe");
-    printFrame.style.cssText = "position:fixed;top:0;left:0;width:820px;height:1px;border:none;visibility:hidden;";
+    printFrame.setAttribute("sandbox", "allow-same-origin allow-scripts");
+    printFrame.style.cssText = [
+        "position:fixed",
+        "top:0",
+        "left:0",
+        "width:820px",
+        "height:100vh",   // temporary — will be expanded after load
+        "border:none",
+        "z-index:-9999",
+        "opacity:0.01",
+        "pointer-events:none"
+    ].join(";");
     document.body.appendChild(printFrame);
 
     printFrame.onload = () => {
         const printDoc = printFrame.contentDocument;
-        const element = printDoc.body;
 
-        const opt = {
-            margin: [10, 12, 10, 12],
-            filename: `${baseName}.pdf`,
-            image: { type: "jpeg", quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: "#ffffff",
-                scrollY: 0,
-                windowWidth: 820
-            },
-            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-            pagebreak: { mode: ["css", "legacy"] }
-        };
+        // Give the browser a tick to finish painting, then measure true height
+        setTimeout(() => {
+            const fullH = Math.max(
+                printDoc.documentElement.scrollHeight,
+                printDoc.documentElement.offsetHeight,
+                printDoc.body.scrollHeight,
+                printDoc.body.offsetHeight
+            );
 
-        html2pdf().set(opt).from(element).save()
-            .then(() => {
-                showToast("PDF 다운로드 완료");
-                printFrame.remove();
-            })
-            .catch(err => {
-                console.error(err);
-                alert("PDF 변환 중 오류가 발생했습니다.");
-                printFrame.remove();
-            });
+            // Expand iframe so html2canvas can see the whole document
+            printFrame.style.height = fullH + "px";
+
+            // One more tick for the reflow to settle
+            setTimeout(() => {
+                const opt = {
+                    margin: [10, 12, 10, 12],
+                    filename: `${baseName}.pdf`,
+                    image: { type: "jpeg", quality: 0.98 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: "#ffffff",
+                        scrollY: 0,
+                        scrollX: 0,
+                        width: 820,
+                        windowWidth: 820,
+                        windowHeight: fullH
+                    },
+                    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+                    pagebreak: { mode: ["css", "legacy"] }
+                };
+
+                html2pdf()
+                    .set(opt)
+                    .from(printDoc.body)
+                    .save()
+                    .then(() => {
+                        showToast("PDF 다운로드 완료");
+                        printFrame.remove();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("PDF 변환 중 오류가 발생했습니다.");
+                        printFrame.remove();
+                    });
+            }, 300);
+        }, 600);
     };
 
     printFrame.srcdoc = cleanHTML;
