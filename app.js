@@ -17,6 +17,20 @@ let savedRange = null;
 let currentTextColor = "#ef4444";
 let currentHighlightColor = "#fef08a";
 
+// Restore the saved selection range inside the preview iframe
+function restoreSelection() {
+    if (!savedRange) return;
+    const iframe = document.getElementById("preview-iframe");
+    if (!iframe || !iframe.contentWindow) return;
+    try {
+        const sel = iframe.contentWindow.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedRange);
+    } catch (e) {
+        // Range may be stale if DOM changed; ignore
+    }
+}
+
 // Credentials
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "123jesus";
@@ -674,95 +688,69 @@ async function exportActiveFile(format) {
 function exportToPDF(baseName) {
     const iframe = document.getElementById("preview-iframe");
     const doc = iframe.contentDocument || iframe.contentWindow.document;
-    
-    showToast("PDF 생성을 시작합니다...");
-    
-    // Clone the iframe's body to prepare a clean printable layout
-    const bodyClone = doc.body.cloneNode(true);
-    
-    // Remove custom visual editing styles and guide borders
-    bodyClone.removeAttribute("contenteditable");
-    bodyClone.classList.remove("show-guides");
-    const helperStyle = bodyClone.querySelector("#aether-preview-styles");
-    if (helperStyle) helperStyle.remove();
-    
-    // Create a temporary print container in the main document to ensure complete page breaking and avoid background leakage
-    const printContainer = document.createElement("div");
-    printContainer.id = "aether-print-container";
-    printContainer.style.position = "absolute";
-    printContainer.style.left = "-9999px";
-    printContainer.style.top = "0";
-    printContainer.style.width = "820px"; // A4 printing optimized width
-    printContainer.style.background = "#ffffff";
-    printContainer.style.color = "#1f2937";
-    printContainer.style.overflow = "visible";
-    printContainer.style.height = "auto";
-    
-    // Copy head style sheets if present inside iframe
-    const styleTags = doc.querySelectorAll("style, link[rel='stylesheet']");
-    styleTags.forEach(style => {
-        printContainer.appendChild(style.cloneNode(true));
-    });
-    
-    // Append the clean body structure
-    printContainer.appendChild(bodyClone);
-    
-    // Add print-specific style overrides to force light backgrounds and dark text
-    const printOverrides = document.createElement("style");
-    printOverrides.innerHTML = `
-        #aether-print-container, 
-        #aether-print-container body {
-            background-color: #ffffff !important;
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            height: auto !important;
-            overflow: visible !important;
-            max-height: none !important;
-            padding: 20px !important;
-        }
-        #aether-print-container h1, 
-        #aether-print-container h2, 
-        #aether-print-container h3, 
-        #aether-print-container h4, 
-        #aether-print-container h5, 
-        #aether-print-container h6,
-        #aether-print-container p,
-        #aether-print-container span,
-        #aether-print-container div,
-        #aether-print-container li,
-        #aether-print-container td,
-        #aether-print-container th {
-            color: #1f2937 !important;
-            text-shadow: none !important;
-        }
-    `;
-    printContainer.appendChild(printOverrides);
-    
-    document.body.appendChild(printContainer);
 
-    const opt = {
-        margin:       15,
-        filename:     `${baseName}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff'
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    showToast("PDF 생성을 시작합니다...");
+
+    // Build a clean standalone HTML string from the current file content
+    // Strip the helper style tag and contenteditable before conversion
+    const rawHTML = activeFile ? activeFile.content : codeEditor.getValue();
+
+    // Inject a light-theme override style so dark backgrounds never appear in PDF
+    const lightOverride = `<style id="pdf-light-override">
+        html, body {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+        }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    </style>`;
+
+    // Insert the override right before </head>, or prepend if no head tag
+    let cleanHTML;
+    const headCloseIdx = rawHTML.toLowerCase().lastIndexOf("</head>");
+    if (headCloseIdx !== -1) {
+        cleanHTML = rawHTML.slice(0, headCloseIdx) + lightOverride + rawHTML.slice(headCloseIdx);
+    } else {
+        cleanHTML = lightOverride + rawHTML;
+    }
+
+    // Create a hidden iframe to render the clean HTML, then capture it
+    const printFrame = document.createElement("iframe");
+    printFrame.style.cssText = "position:fixed;top:0;left:0;width:820px;height:1px;border:none;visibility:hidden;";
+    document.body.appendChild(printFrame);
+
+    printFrame.onload = () => {
+        const printDoc = printFrame.contentDocument;
+        const element = printDoc.body;
+
+        const opt = {
+            margin: [10, 12, 10, 12],
+            filename: `${baseName}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                scrollY: 0,
+                windowWidth: 820
+            },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["css", "legacy"] }
+        };
+
+        html2pdf().set(opt).from(element).save()
+            .then(() => {
+                showToast("PDF 다운로드 완료");
+                printFrame.remove();
+            })
+            .catch(err => {
+                console.error(err);
+                alert("PDF 변환 중 오류가 발생했습니다.");
+                printFrame.remove();
+            });
     };
 
-    html2pdf().set(opt).from(printContainer).save()
-        .then(() => {
-            showToast("PDF 다운로드 완료");
-            printContainer.remove();
-        })
-        .catch(err => {
-            console.error(err);
-            alert("PDF 변환 중 오류가 발생했습니다.");
-            printContainer.remove();
-        });
+    printFrame.srcdoc = cleanHTML;
 }
 
 // 2) EPUB Export (using JSZip)
